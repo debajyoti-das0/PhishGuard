@@ -1,15 +1,18 @@
-# PhishNet-Transformer
+# PhishNet-Transformer (PhishGuard)
 
-A machine learning and Transformer-based phishing URL detection project using the **PhiUSIIL Phishing URL Dataset**.
+A machine learning, deep learning, and Transformer-based phishing URL detection project using the **PhiUSIIL Phishing URL Dataset**.
 
 ## Project Overview
 
 **PhishNet-Transformer** aims to build a phishing URL detection pipeline by transforming the raw PhiUSIIL dataset into clean, balanced, and correctly labeled datasets for:
 
 - Classic Machine Learning models
+- Deep Learning models (character/sequence-based)
 - DistilBERT Transformer-based classification
 
 The goal is to determine whether a URL is **phishing** or **legitimate**.
+
+Because the PhiUSIIL dataset is large (~235K URLs), it is well suited not just for classic feature-based ML but also for **deep learning models that learn directly from raw URL character sequences**, without relying on hand-engineered features.
 
 ## Dataset
 
@@ -62,14 +65,16 @@ Raw PhiUSIIL Dataset
         ▼
 Train / Validation / Test Split
         │
-        ├─────────────────┐
-        ▼                 ▼
-   Classic ML          DistilBERT
-    Pipeline           Pipeline
-        │                 │
-        └────────┬────────┘
-                 ▼
-       Model Evaluation
+        ├─────────────────┬─────────────────┐
+        ▼                 ▼                 ▼
+   Classic ML        Deep Learning      DistilBERT
+    Pipeline           Pipeline          Pipeline
+   (feature-based)   (char/sequence-    (Transformer)
+                       based)
+        │                 │                 │
+        └────────┬────────┴────────┬────────┘
+                 ▼                 ▼
+              Model Evaluation
                  │
                  ▼
         Performance Comparison
@@ -192,7 +197,54 @@ ML Classifier
 1 = Phishing
 ```
 
-### 2. DistilBERT Transformer
+### 2. Deep Learning (Character/Sequence-Based)
+
+With a large dataset like PhiUSIIL, deep learning models can learn directly from the **raw character sequence of a URL**, rather than relying on manually engineered features. This lets the model pick up on subtle character-level patterns (e.g. unusual character n-grams, obfuscated domains, suspicious substrings) that hand-crafted features might miss.
+
+Possible architectures include:
+
+- **Character-level CNN** — 1D convolutions over character embeddings to detect local suspicious patterns (e.g. `paypa1`, `-secure-login-`)
+- **LSTM / BiLSTM** — sequential model that captures long-range dependencies across the full URL string
+- **CNN-LSTM hybrid** — convolutional layers for local feature extraction feeding into a recurrent layer for sequence context
+- **GRU** — a lighter-weight recurrent alternative to LSTM for faster training on large datasets
+
+The deep learning pipeline generally follows:
+
+```text
+URL
+ │
+ ▼
+Character-level Tokenization
+ │
+ ▼
+Padded Integer Sequence
+ │
+ ▼
+Embedding Layer
+ │
+ ▼
+CNN / LSTM / BiLSTM / GRU Layers
+ │
+ ▼
+Dense + Sigmoid Output
+ │
+ ▼
+0 = Legitimate
+1 = Phishing
+```
+
+Key considerations for this pipeline:
+
+- **Tokenization**: URLs are broken into individual characters (or n-grams) and mapped to integer indices using a character-level vocabulary built from the training set.
+- **Sequence length**: URLs are padded/truncated to a fixed maximum length so they can be processed in batches.
+- **Embedding layer**: learns a dense vector representation for each character, allowing the model to capture similarity between characters/substrings.
+- **Regularization**: dropout and early stopping (monitored on `val.csv`) are used to prevent overfitting, since deep models can memorize URL patterns given a large enough dataset.
+- **Class imbalance**: handled via class weighting or oversampling, consistent with the classic ML pipeline, so the deep model isn't biased toward the majority class.
+- **Framework**: implemented using TensorFlow/Keras or PyTorch.
+
+This deep learning approach sits between classic feature-based ML (fast, interpretable, but feature-limited) and DistilBERT (large, pretrained, language-oriented) — it is lightweight enough to train from scratch on the full dataset while still learning representations directly from raw URLs.
+
+### 3. DistilBERT Transformer
 
 **DistilBERT** is a smaller and faster version of BERT based on the Transformer architecture.
 
@@ -246,6 +298,7 @@ A final comparison can be presented as:
 | Model | Accuracy | Precision | Recall | F1-Score | ROC-AUC |
 |---|---:|---:|---:|---:|---:|
 | Classic ML | — | — | — | — | — |
+| Deep Learning (CNN/LSTM) | — | — | — | — | — |
 | DistilBERT | — | — | — | — | — |
 
 The values should be populated after training and evaluation.
@@ -267,10 +320,12 @@ PhishNet-Transformer/
 ├── notebooks/
 │   ├── data_preprocessing.ipynb
 │   ├── classic_ml.ipynb
+│   ├── deep_learning.ipynb
 │   └── distilbert.ipynb
 │
 ├── models/
 │   ├── classic_ml/
+│   ├── deep_learning/
 │   └── distilbert/
 │
 ├── requirements.txt
@@ -284,10 +339,11 @@ Create a Python environment and install the required dependencies.
 
 ```bash
 pip install pandas numpy scikit-learn matplotlib seaborn
-pip install torch transformers datasets
+pip install tensorflow          # or: pip install torch
+pip install transformers datasets
 ```
 
-Additional libraries may be installed depending on the selected ML algorithms and feature engineering methods.
+Additional libraries may be installed depending on the selected ML algorithms, deep learning framework, and feature engineering methods.
 
 ## Usage
 
@@ -311,13 +367,17 @@ test.csv
 
 Load `train.csv`, extract URL features, train the selected machine learning models, and validate them using `val.csv`.
 
-### Step 4 — Train DistilBERT
+### Step 4 — Train Deep Learning Models
+
+Load the same processed datasets, build a character-level vocabulary from `train.csv`, tokenize and pad the URLs, then train a CNN/LSTM/BiLSTM model, using `val.csv` for validation and early stopping.
+
+### Step 5 — Train DistilBERT
 
 Load the same processed datasets, tokenize the URLs using the DistilBERT tokenizer, and fine-tune DistilBERT using the training and validation sets.
 
-### Step 5 — Final Evaluation
+### Step 6 — Final Evaluation
 
-Evaluate the final models using `test.csv` and compare their performance.
+Evaluate the final models (Classic ML, Deep Learning, DistilBERT) using `test.csv` and compare their performance.
 
 ## Important Considerations
 
@@ -359,8 +419,8 @@ When experimenting with phishing datasets, use appropriate security precautions 
 Potential future improvements include:
 
 - Advanced URL feature engineering
-- Character-level tokenization
 - URL-specific Transformer models
+- Attention-based deep learning architectures (e.g. Transformer encoder trained from scratch on characters)
 - Ensemble learning
 - Hyperparameter optimization
 - Explainable AI
@@ -379,4 +439,12 @@ Dataset:
 
 https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset
 
+## License
 
+This project is intended for educational and research purposes.
+
+The PhiUSIIL dataset is subject to its original license and terms of use.
+
+---
+
+**PhishNet-Transformer — Phishing URL Detection using Classic Machine Learning, Deep Learning, and DistilBERT.**
