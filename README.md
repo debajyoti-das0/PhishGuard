@@ -379,12 +379,4 @@ Dataset:
 
 https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset
 
-## License
 
-This project is intended for educational and research purposes.
-
-The PhiUSIIL dataset is subject to its original license and terms of use.
-
----
-
-**PhishNet-Transformer — Phishing URL Detection using Classic Machine Learning and DistilBERT.**
