@@ -1,4 +1,4 @@
-# PhishNet-Transformer (PhishGuard)
+# Phishing URL Detection System
 
 A machine learning, deep learning, and Transformer-based phishing URL detection project using the **PhiUSIIL Phishing URL Dataset**.
 
